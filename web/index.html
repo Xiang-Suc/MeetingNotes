@@ -63,7 +63,7 @@
         <span class="chevron">▶</span>
       </div>
       <div class="collapsible-content">
-        <div class="repo-link">GitHub: <a href="https://github.com/Xiang-Suc/MeetingNotes" target="_blank">https://github.com/Xiang-Suc/MeetingNotes</a></div>
+        <div class="repo-link">GitHub: <a href="https://github.com/Xiang-Suc/MeetingNotes/blob/main/prompts/summary_system_prompt.md" target="_blank">https://github.com/Xiang-Suc/MeetingNotes/blob/main/prompts/summary_system_prompt.md</a></div>
         <div>
           <div style="font-weight:600; margin-bottom:6px;">Current Prompt</div>
           <pre id="promptText" class="prompt-box">Loading prompt...</pre>
@@ -108,6 +108,7 @@
       const savePromptOnceBtn = document.getElementById('savePromptOnceBtn');
       const cancelEditBtn = document.getElementById('cancelEditBtn');
       const discardOverrideBtn = document.getElementById('discardOverrideBtn');
+      let lastLoadedPromptText = '';
 
       function setFile(f) {
         if (!f) return;
@@ -169,6 +170,8 @@
           if (userPromptOverride) {
             userPromptOverride = null;
             updatePromptStatus();
+            // restore displayed prompt to the last loaded source
+            promptText.textContent = lastLoadedPromptText || '(empty)';
           }
         } catch (err) {
           status.textContent = err.message;
@@ -223,14 +226,44 @@
             const trimmed = base ? (base.endsWith('/') ? base.slice(0, -1) : base) : '';
             const url = trimmed ? `${trimmed}/prompt` : '/prompt';
             const res = await fetch(url);
-            const data = await res.json();
-            promptText.textContent = (data.prompt || '').trim() || '(empty)';
+            const ct = res.headers.get('content-type') || '';
+            if (!res.ok) {
+              const text = await res.text().catch(() => '');
+              throw new Error(`HTTP ${res.status} ${res.statusText}${text ? ' – ' + text.slice(0, 80) : ''}`);
+            }
+            if (ct.includes('application/json')) {
+              const data = await res.json();
+              promptText.textContent = (data.prompt || '').trim() || '(empty)';
+              lastLoadedPromptText = promptText.textContent;
+            } else {
+              const html = await res.text();
+              throw new Error('Endpoint returned non-JSON. Set API_BASE_URL in web/config.js to your HTTPS backend.');
+            }
             // keep editor in sync if editing
             if (promptEditor.style.display !== 'none') {
               promptEditor.value = promptText.textContent;
             }
           } catch (err) {
-            promptText.textContent = `Failed to load prompt: ${err.message}`;
+            // Fallback to static prompt file on the same origin (GitHub Pages)
+            try {
+              const res2 = await fetch('prompt.txt');
+              if (res2.ok) {
+                const text2 = await res2.text();
+                promptText.textContent = (text2 || '').trim() || '(empty)';
+                lastLoadedPromptText = promptText.textContent;
+                if (promptEditor.style.display !== 'none') {
+                  promptEditor.value = promptText.textContent;
+                }
+              } else {
+                throw new Error(`Fallback failed HTTP ${res2.status}`);
+              }
+            } catch (err2) {
+              promptText.textContent = `Failed to load prompt: ${err.message}`;
+              const base = (window.CONFIG && window.CONFIG.API_BASE_URL) ? window.CONFIG.API_BASE_URL : '';
+              if (!base) {
+                promptText.textContent += '\nTip: On GitHub Pages, set window.CONFIG.API_BASE_URL (HTTPS) to your backend, or ensure prompt.txt is present.';
+              }
+            }
           }
         }
       });
@@ -270,6 +303,12 @@
       savePromptOnceBtn.addEventListener('click', () => {
         userPromptOverride = (promptEditor.value || '').trim();
         updatePromptStatus();
+        // Reflect override in UI until cleared
+        if (userPromptOverride) {
+          promptText.textContent = userPromptOverride;
+        } else {
+          promptText.textContent = lastLoadedPromptText || '(empty)';
+        }
         // exit edit mode back to display
         promptEditor.style.display = 'none';
         promptText.style.display = 'block';
@@ -281,6 +320,8 @@
       discardOverrideBtn.addEventListener('click', () => {
         userPromptOverride = null;
         updatePromptStatus();
+        // Restore UI to last loaded prompt
+        promptText.textContent = lastLoadedPromptText || '(empty)';
       });
     </script>
   </body>
