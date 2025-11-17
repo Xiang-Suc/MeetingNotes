@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MeetingNotes – Upload DOCX</title>
+    <style>
+      body { font-family: -apple-system, system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 40px; }
+      .dropzone { border: 2px dashed #999; border-radius: 8px; padding: 40px; text-align: center; color: #666; }
+      .dropzone.dragover { border-color: #2c7; background: #f6fff6; }
+      .dropzone.has-file { border-color: #1f7aec; background: #f7fbff; }
+      .actions { margin-top: 20px; }
+      button { padding: 10px 16px; border: none; border-radius: 6px; background: #1f7aec; color: #fff; cursor: pointer; }
+      button:disabled { background: #999; cursor: not-allowed; }
+      .status { margin-top: 16px; color: #333; }
+      .file-name { margin-top: 8px; font-weight: 600; }
+      .file-name.selected { color: #0a7d33; background: #eaffea; padding: 6px 10px; border-radius: 6px; display: inline-block; }
+      .hint { color: #777; font-size: 14px; margin-top: 8px; }
+
+      /* Collapsible section */
+      .collapsible { margin-top: 28px; border: 1px solid #ddd; border-radius: 8px; }
+      .collapsible-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: #f8f9fb; cursor: pointer; }
+      .collapsible-title { font-weight: 600; color: #333; }
+      .chevron { transition: transform 0.2s ease; }
+      .collapsible-content { display: none; padding: 12px 14px; }
+      .collapsible.open .collapsible-content { display: block; }
+      .collapsible.open .chevron { transform: rotate(90deg); }
+      .prompt-box { background: #f7fbff; border: 1px solid #d9e8ff; border-radius: 8px; padding: 10px 12px; white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 13px; color: #0b3d91; }
+      .repo-link { margin-bottom: 10px; }
+      .prompt-editor { width: 100%; min-height: 160px; box-sizing: border-box; padding: 10px 12px; border: 1px solid #d9e8ff; border-radius: 8px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 13px; color: #0b3d91; background: #fff; }
+      .prompt-actions { margin-top: 10px; display: flex; gap: 8px; align-items: center; }
+      .pill { display: inline-block; padding: 4px 8px; border-radius: 999px; font-size: 12px; }
+      .pill.active { background: #eaffea; color: #0a7d33; border: 1px solid #b6e5b6; }
+
+      /* Success modal */
+      .modal { position: fixed; inset: 0; display: none; z-index: 1000; }
+      .modal.visible { display: block; }
+      .modal-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.35); }
+      .modal-box { position: relative; max-width: 560px; margin: 10% auto; background: #fff; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); padding: 20px; }
+      .modal-box h2 { margin: 0 0 8px; }
+      .modal-box p { margin: 6px 0 12px; color: #333; }
+      .modal-box .actions { text-align: right; margin-top: 12px; }
+      .modal-box .actions button { background: #1f7aec; }
+    </style>
+  </head>
+  <body>
+    <h1>Upload DOCX transcript</h1>
+    <div id="drop" class="dropzone">
+      Drag & drop a .docx file here, or click to select
+      <input id="file" type="file" accept=".docx" style="display:none" />
+      <div class="file-name" id="fname"></div>
+      <div class="hint">Only .docx is supported</div>
+    </div>
+    <div class="actions">
+      <button id="process" disabled>Process</button>
+      <div class="status" id="status"></div>
+    </div>
+
+    <!-- Collapsible: Repo & Prompt -->
+    <div id="infoBox" class="collapsible" aria-expanded="false">
+      <div class="collapsible-header" id="infoToggle">
+        <span class="collapsible-title">Repo & Prompt</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="collapsible-content">
+        <div class="repo-link">GitHub: <a href="https://github.com/Xiang-Suc/MeetingNotes" target="_blank">https://github.com/Xiang-Suc/MeetingNotes</a></div>
+        <div>
+          <div style="font-weight:600; margin-bottom:6px;">Current Prompt</div>
+          <pre id="promptText" class="prompt-box">Loading prompt...</pre>
+          <textarea id="promptEditor" class="prompt-editor" style="display:none" placeholder="Edit prompt here..."></textarea>
+          <div class="prompt-actions">
+            <button id="editPromptBtn" type="button">Edit Prompt</button>
+            <button id="savePromptOnceBtn" type="button" style="display:none">Use This Prompt Once</button>
+            <button id="cancelEditBtn" type="button" style="display:none">Cancel</button>
+            <button id="discardOverrideBtn" type="button" style="display:none; background:#888">Discard One-Time Prompt</button>
+            <span id="promptStatus" class="pill" style="display:none"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Success Modal -->
+    <div id="successModal" class="modal" aria-hidden="true" role="dialog">
+      <div class="modal-backdrop"></div>
+      <div class="modal-box" role="document">
+        <h2 id="modalTitle">Success</h2>
+        <p id="modalMessage"></p>
+        <div id="modalLink"></div>
+        <div class="actions">
+          <button id="modalClose">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="config.js"></script>
+    <script>
+      const drop = document.getElementById('drop');
+      const input = document.getElementById('file');
+      const processBtn = document.getElementById('process');
+      const status = document.getElementById('status');
+      const fname = document.getElementById('fname');
+      let file = null;
+      let userPromptOverride = null; // one-time prompt override
+      const promptStatusEl = document.getElementById('promptStatus');
+      const promptText = document.getElementById('promptText');
+      const promptEditor = document.getElementById('promptEditor');
+      const editPromptBtn = document.getElementById('editPromptBtn');
+      const savePromptOnceBtn = document.getElementById('savePromptOnceBtn');
+      const cancelEditBtn = document.getElementById('cancelEditBtn');
+      const discardOverrideBtn = document.getElementById('discardOverrideBtn');
+
+      function setFile(f) {
+        if (!f) return;
+        if (!f.name.toLowerCase().endsWith('.docx')) {
+          status.textContent = 'Please select a .docx file.';
+          return;
+        }
+        file = f;
+        fname.textContent = f.name;
+        fname.classList.add('selected');
+        drop.classList.add('has-file');
+        processBtn.disabled = false;
+        status.textContent = '';
+
+        // Show 3s upload success modal
+        showModal({
+          title: 'Upload Successfully',
+          message: 'File uploaded successfully.',
+          cardUrl: null,
+          autoHideMs: 3000,
+        });
+      }
+
+      drop.addEventListener('click', () => input.click());
+      input.addEventListener('change', () => setFile(input.files[0]));
+      drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('dragover'); });
+      drop.addEventListener('dragleave', () => drop.classList.remove('dragover'));
+      drop.addEventListener('drop', (e) => {
+        e.preventDefault();
+        drop.classList.remove('dragover');
+        const f = e.dataTransfer.files[0];
+        setFile(f);
+      });
+
+      processBtn.addEventListener('click', async () => {
+        if (!file) return;
+        processBtn.disabled = true;
+        status.textContent = 'Processing...';
+        const fd = new FormData();
+        fd.append('file', file);
+        // inject one-time prompt if present
+        if (userPromptOverride && userPromptOverride.trim().length > 0) {
+          fd.append('system_prompt', userPromptOverride);
+        }
+        try {
+          const base = (window.CONFIG && window.CONFIG.API_BASE_URL) ? window.CONFIG.API_BASE_URL : '';
+          const trimmed = base ? (base.endsWith('/') ? base.slice(0, -1) : base) : '';
+          const url = trimmed ? `${trimmed}/process` : '/process';
+          const res = await fetch(url, { method: 'POST', body: fd });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Processing failed');
+          status.innerHTML = `Created Trello card: <a href="${data.cardUrl}" target="_blank">${data.cardUrl}</a>`;
+          showModal({
+            title: 'Process Successfully',
+            message: 'File processed successfully.',
+            cardUrl: data.cardUrl,
+          });
+          // clear one-time prompt after successful process
+          if (userPromptOverride) {
+            userPromptOverride = null;
+            updatePromptStatus();
+          }
+        } catch (err) {
+          status.textContent = err.message;
+        } finally {
+          processBtn.disabled = false;
+        }
+      });
+
+      let modalTimer = null;
+      function showModal({ title, message, cardUrl, autoHideMs }) {
+        const modal = document.getElementById('successModal');
+        const titleEl = document.getElementById('modalTitle');
+        const msgEl = document.getElementById('modalMessage');
+        const linkEl = document.getElementById('modalLink');
+        titleEl.textContent = title || 'Success';
+        msgEl.textContent = message || '';
+        linkEl.innerHTML = cardUrl ? `Trello card link: <a href="${cardUrl}" target="_blank">${cardUrl}</a>` : '';
+        modal.classList.add('visible');
+        if (modalTimer) {
+          clearTimeout(modalTimer);
+          modalTimer = null;
+        }
+        if (autoHideMs && Number.isFinite(autoHideMs)) {
+          modalTimer = setTimeout(() => {
+            modal.classList.remove('visible');
+            modalTimer = null;
+          }, autoHideMs);
+        }
+      }
+
+      document.getElementById('modalClose').addEventListener('click', () => {
+        document.getElementById('successModal').classList.remove('visible');
+      });
+
+      document.getElementById('successModal').addEventListener('click', (e) => {
+        // click backdrop to close
+        if (e.target.id === 'successModal') {
+          e.currentTarget.classList.remove('visible');
+          if (modalTimer) { clearTimeout(modalTimer); modalTimer = null; }
+        }
+      });
+
+      // Collapsible behavior
+      const infoBox = document.getElementById('infoBox');
+      const infoToggle = document.getElementById('infoToggle');
+      infoToggle.addEventListener('click', async () => {
+        const opened = infoBox.classList.toggle('open');
+        infoBox.setAttribute('aria-expanded', opened ? 'true' : 'false');
+        if (opened && promptText.textContent.trim() === 'Loading prompt...') {
+          try {
+            const base = (window.CONFIG && window.CONFIG.API_BASE_URL) ? window.CONFIG.API_BASE_URL : '';
+            const trimmed = base ? (base.endsWith('/') ? base.slice(0, -1) : base) : '';
+            const url = trimmed ? `${trimmed}/prompt` : '/prompt';
+            const res = await fetch(url);
+            const data = await res.json();
+            promptText.textContent = (data.prompt || '').trim() || '(empty)';
+            // keep editor in sync if editing
+            if (promptEditor.style.display !== 'none') {
+              promptEditor.value = promptText.textContent;
+            }
+          } catch (err) {
+            promptText.textContent = `Failed to load prompt: ${err.message}`;
+          }
+        }
+      });
+
+      // Prompt edit and one-time override controls
+      editPromptBtn.addEventListener('click', () => {
+        promptEditor.value = promptText.textContent;
+        promptText.style.display = 'none';
+        promptEditor.style.display = 'block';
+        savePromptOnceBtn.style.display = 'inline-block';
+        cancelEditBtn.style.display = 'inline-block';
+        editPromptBtn.style.display = 'none';
+      });
+
+      cancelEditBtn.addEventListener('click', () => {
+        promptEditor.style.display = 'none';
+        promptText.style.display = 'block';
+        savePromptOnceBtn.style.display = 'none';
+        cancelEditBtn.style.display = 'none';
+        editPromptBtn.style.display = 'inline-block';
+      });
+
+      function updatePromptStatus() {
+        if (userPromptOverride && userPromptOverride.trim().length > 0) {
+          promptStatusEl.textContent = 'One-time prompt active';
+          promptStatusEl.classList.add('active');
+          promptStatusEl.style.display = 'inline-block';
+          discardOverrideBtn.style.display = 'inline-block';
+        } else {
+          promptStatusEl.textContent = '';
+          promptStatusEl.classList.remove('active');
+          promptStatusEl.style.display = 'none';
+          discardOverrideBtn.style.display = 'none';
+        }
+      }
+
+      savePromptOnceBtn.addEventListener('click', () => {
+        userPromptOverride = (promptEditor.value || '').trim();
+        updatePromptStatus();
+        // exit edit mode back to display
+        promptEditor.style.display = 'none';
+        promptText.style.display = 'block';
+        savePromptOnceBtn.style.display = 'none';
+        cancelEditBtn.style.display = 'none';
+        editPromptBtn.style.display = 'inline-block';
+      });
+
+      discardOverrideBtn.addEventListener('click', () => {
+        userPromptOverride = null;
+        updatePromptStatus();
+      });
+    </script>
+  </body>
+  </html>

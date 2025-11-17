@@ -1,0 +1,32 @@
+uploads/
+Zcash-Driven Applications (ZDA).docx
+# Python caches and compiled files
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+venv/
+
+# Coverage, test, and caches
+.pytest_cache/
+.coverage
+coverage/
+.cache/
+
+# OS/editor
+.DS_Store
+.idea/
+.vscode/
+
+# Environment files (do not commit secrets)
+.env
+.env.*
+
+# Potential frontend artifacts (if bundlers/tools are added later)
+node_modules/
+web/node_modules/
+web/dist/
