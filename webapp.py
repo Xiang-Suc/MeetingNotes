@@ -135,6 +135,16 @@ def process():
         one_time_prompt or settings.summary_system_prompt,
     )
 
+    # Save the generated summary to a local file to attach to the Trello card
+    summary_fname = f"{uuid4().hex}.md"
+    summary_path = os.path.join(os.path.dirname(__file__), "uploads", summary_fname)
+    try:
+        with open(summary_path, "w", encoding="utf-8") as f:
+            f.write(summary_md or "")
+    except Exception:
+        # If writing the summary file fails, continue without blocking the process
+        summary_path = None
+
     card_title, desc_text, checklist_defs = transform_summary_for_trello(summary_md)
     try:
         list_id = ensure_list_id(
@@ -156,6 +166,20 @@ def process():
                 path,
                 original_name or fname,
             )
+        except Exception:
+            # Ignore attachment errors to avoid failing the whole process
+            pass
+        # Attach the generated summary markdown file to the Trello card (best-effort)
+        try:
+            if summary_path:
+                summary_display_name = (card_name or "Meeting") + " – Summary.md"
+                add_attachment_file(
+                    settings.trello_key,
+                    settings.trello_token,
+                    card.get("id"),
+                    summary_path,
+                    summary_display_name,
+                )
         except Exception:
             # Ignore attachment errors to avoid failing the whole process
             pass
