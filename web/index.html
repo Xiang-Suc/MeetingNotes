@@ -190,6 +190,11 @@
         msgEl.textContent = message || '';
         linkEl.innerHTML = cardUrl ? `Trello card link: <a href="${cardUrl}" target="_blank">${cardUrl}</a>` : '';
         modal.classList.add('visible');
+        // Accessibility: when visible, modal should not be aria-hidden
+        modal.setAttribute('aria-hidden', 'false');
+        // Move focus to Close button
+        const closeBtn = document.getElementById('modalClose');
+        if (closeBtn) closeBtn.focus();
         if (modalTimer) {
           clearTimeout(modalTimer);
           modalTimer = null;
@@ -197,20 +202,27 @@
         if (autoHideMs && Number.isFinite(autoHideMs)) {
           modalTimer = setTimeout(() => {
             modal.classList.remove('visible');
+            modal.setAttribute('aria-hidden', 'true');
             modalTimer = null;
           }, autoHideMs);
         }
       }
 
+      function hideModal() {
+        const modal = document.getElementById('successModal');
+        modal.classList.remove('visible');
+        modal.setAttribute('aria-hidden', 'true');
+        if (modalTimer) { clearTimeout(modalTimer); modalTimer = null; }
+      }
+
       document.getElementById('modalClose').addEventListener('click', () => {
-        document.getElementById('successModal').classList.remove('visible');
+        hideModal();
       });
 
       document.getElementById('successModal').addEventListener('click', (e) => {
         // click backdrop to close
         if (e.target.id === 'successModal') {
-          e.currentTarget.classList.remove('visible');
-          if (modalTimer) { clearTimeout(modalTimer); modalTimer = null; }
+          hideModal();
         }
       });
 

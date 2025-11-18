@@ -3,6 +3,6 @@
 // Leave empty for local development where the Flask backend runs on the same origin.
 
 window.CONFIG = {
-  // Example: 'https://your-backend.example.com'
-  API_BASE_URL: '',
+  // Render backend public URL (used for GitHub Pages frontend calls)
+  API_BASE_URL: 'https://meetingnotes.onrender.com',
 };
