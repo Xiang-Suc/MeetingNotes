@@ -123,6 +123,26 @@ Always structure the output in this exact format inside a single Markdown block:
   * ZCache
 * Do not alter the surrounding context; only fix the term itself.
 
+### 11. Phrase Normalization (Zcash Me)
+
+* "Zcash D" and similar are incorrect; normalize to "Zcash Me".
+* If any token immediately follows "Zcash" and phonetically approximates "Me", replace it with "Me".
+* Always output exactly "Zcash Me" for such cases; do not preserve the mistaken token.
+* Correct the following common variants (case- and punctuation-insensitive):
+  * Zcash D
+  * Zcash Dee
+  * Zcash Di
+  * Zcash d
+  * Zcash me
+  * Zcash ME
+  * Zcash Mee
+  * Zcash Mi
+  * Zcash May
+  * Zcash M
+  * Zcash-me
+  * Zcash me.
+* Only fix the trailing token after "Zcash"; do not change surrounding context.
+
 ## ✅ STYLE & BOUNDARIES
 
 * Never abstract, generalize, summarize or infer.
