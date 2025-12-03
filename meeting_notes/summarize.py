@@ -1,6 +1,15 @@
 from typing import List, Optional
+import re
 
 from openai import OpenAI
+
+
+def _apply_terminology_corrections(text: str) -> str:
+    t = text or ""
+    t = re.sub(r"\bZ\s*[-]?\s*cache\b", "Zcash", t, flags=re.IGNORECASE)
+    t = re.sub(r"\bZcash\s+(?:D|Dee|Di|d|me|ME|Mee|Mi|May|M)\b", "Zcash Me", t, flags=re.IGNORECASE)
+    t = re.sub(r"\bZcash\s+me\b", "Zcash Me", t, flags=re.IGNORECASE)
+    return t
 
 
 def summarize_markdown(api_key: str, transcript_text: str, system_prompt: Optional[str] = None) -> str:
@@ -23,4 +32,4 @@ def summarize_markdown(api_key: str, transcript_text: str, system_prompt: Option
         messages=messages,
         temperature=0.2,
     )
-    return resp.choices[0].message.content
+    return _apply_terminology_corrections(resp.choices[0].message.content)
