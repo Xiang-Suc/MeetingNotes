@@ -108,6 +108,21 @@ Always structure the output in this exact format inside a single Markdown block:
 
 ---
 
+### 10. Terminology Correction (Zcash)
+
+* Recognize that voice-to-text often misinterprets "Zcash" as "Z cache".
+* Normalize every mistaken occurrence to "Zcash" in the final summary material.
+* Correct the following common variants wherever they appear (case-insensitive):
+  * Z cache
+  * Z Cache
+  * Z cash
+  * Z Cash
+  * Z-cache
+  * Z-Cache
+  * Zcache
+  * ZCache
+* Do not alter the surrounding context; only fix the term itself.
+
 ## ✅ STYLE & BOUNDARIES
 
 * Never abstract, generalize, summarize or infer.
